@@ -1,14 +1,126 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/LabelLayout"
-    android:orientation="vertical" android:layout_width="wrap_content"
-    android:layout_height="wrap_content"
-    android:background="@color/red">
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/label_layout"
+    android:layout_width="@dimen/label_width"
+    android:layout_height="@dimen/label_height"
+    android:layout_alignParentTop="true"
+    android:layout_centerHorizontal="true"
+    android:background="@color/primary_transparent"
+    >
 
     <TextView
-        android:id="@+id/AircraftID"
+        android:id="@+id/flight_id"
+        android:capitalize="characters"
+        android:layout_width="@dimen/left_title_width"
+        android:layout_height="wrap_content"
+        android:text="FLIGHT1234"
+        android:layout_marginLeft="5dp"
+        android:textSize="@dimen/label_titles_size"
+        android:textColor="@color/labels_text"
+        android:gravity="top|start"
+        android:layout_marginBottom="5dp"/>
+
+    <TextView
+        android:id="@+id/altitude"
+        android:capitalize="characters"
+        android:layout_width="@dimen/right_title_width"
+        android:layout_height="wrap_content"
+        android:text="400ft"
+        android:layout_marginRight="5dp"
+        android:textSize="@dimen/label_titles_size"
+        android:textColor="@color/labels_text"
+        android:textStyle="bold"
+        android:gravity="top|end"
+        android:layout_toRightOf="@+id/flight_id"
+        android:layout_marginBottom="5dp"/>
+
+    <TextView
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content" />
+        android:layout_height="wrap_content"
+        android:text="Touch to predict"
+        android:layout_centerInParent="true"
+        android:layout_below="@+id/flight_id"
+        android:textColor="@color/labels_text"
+        android:id="@+id/call_to_predict"/>
+
+    <RelativeLayout
+        android:id="@+id/prediction_buttons_layout"
+        android:layout_width="wrap_content"
+        android:layout_height="@dimen/fab_size"
+        android:layout_centerHorizontal="true"
+        android:layout_centerInParent="true"
+        android:layout_marginBottom="5dp"
+        android:layout_marginTop="5dp"
+        android:layout_below="@+id/call_to_predict"
+        android:visibility="gone">
+
+        <Button
+            android:layout_width="@dimen/fab_size"
+            android:layout_height="@dimen/fab_size"
+            android:layout_alignParentBottom="true"
+            android:layout_marginRight="10dp"
 
 
-</LinearLayout>
+            android:text="2mins"
+            android:id="@+id/pred_button2"
+            android:background="@drawable/round_button_2mins"
+            android:textSize="8dp"
+            android:textColor="@color/labels_text"
+            android:backgroundTintMode="src_atop" />
+
+        <Button
+            android:layout_width="@dimen/fab_size"
+            android:layout_height="@dimen/fab_size"
+            android:layout_alignParentBottom="true"
+            android:layout_marginRight="10dp"
+
+
+            android:text="3mins"
+            android:id="@+id/pred_button3"
+            android:background="@drawable/round_button_3mins"
+            android:textSize="8dp"
+            android:textColor="@color/labels_text"
+            android:backgroundTintMode="src_atop"
+            android:layout_toRightOf="@+id/pred_button2"/>
+
+        <Button
+            android:layout_width="@dimen/fab_size"
+            android:layout_height="@dimen/fab_size"
+            android:layout_alignParentBottom="true"
+            android:layout_marginRight="10dp"
+
+
+            android:text="4mins"
+            android:id="@+id/pred_button4"
+            android:background="@drawable/round_button_4mins"
+            android:textSize="8dp"
+            android:textColor="@color/labels_text"
+            android:backgroundTintMode="src_atop"
+            android:layout_toRightOf="@+id/pred_button3"/>
+
+        <Button
+            android:layout_width="@dimen/fab_size"
+            android:layout_height="@dimen/fab_size"
+            android:layout_alignParentBottom="true"
+            android:layout_marginRight="10dp"
+
+
+            android:text="5mins"
+            android:id="@+id/pred_button5"
+            android:background="@drawable/round_button_5mins"
+            android:textSize="8dp"
+            android:textColor="@color/labels_text"
+            android:backgroundTintMode="src_atop"
+            android:layout_toRightOf="@+id/pred_button4"/>
+
+
+
+
+
+
+    </RelativeLayout>
+
+
+
+    </RelativeLayout>
+

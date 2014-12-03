@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+
+    <size
+        android:width="@dimen/fab_size"
+        android:height="@dimen/fab_size"
+        />
+
+    <solid
+        android:color="@color/pred_2mins"
+        />
+
+    <stroke
+        android:width="5dp"
+        android:color="@color/pred_2mins"
+        />
+</shape>

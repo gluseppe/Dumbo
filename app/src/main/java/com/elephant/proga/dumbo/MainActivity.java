@@ -1,6 +1,7 @@
 package com.elephant.proga.dumbo;
 
 
+import android.app.FragmentTransaction;
 import android.graphics.Point;
 import android.os.Bundle;
 import android.os.Handler;
@@ -10,12 +11,14 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.ViewGroup;
 import android.view.animation.Interpolator;
 import android.view.animation.LinearInterpolator;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import com.elephant.proga.dumbo.interfaces.LabelInterface;
 import com.elephant.proga.dumbo.interfaces.PredictionHandler;
 import com.elephant.proga.dumbo.interfaces.PredictionViewer;
 import com.elephant.proga.dumbo.interfaces.SelfStatusHandler;
@@ -40,9 +43,10 @@ import java.util.Hashtable;
 import java.util.Iterator;
 
 
-public class MainActivity extends FragmentActivity implements SelfStatusHandler, GoogleMap.OnCameraChangeListener, GoogleMap.OnMarkerClickListener, TrafficStatusHandler, PredictionHandler {
+public class MainActivity extends FragmentActivity implements SelfStatusHandler, GoogleMap.OnCameraChangeListener,
+        GoogleMap.OnMarkerClickListener, TrafficStatusHandler, PredictionHandler, LabelInterface {
 
-    private final String ROOTSOURCE = "http://192.168.1.21:8080";
+    private final String ROOTSOURCE = "http://192.168.1.20:8080";
     private final String SELFSOURCE = ROOTSOURCE + "/traffic?item=myState";
     private final String TRAFFICSOURCE = ROOTSOURCE + "/traffic?item=traffic";
     private final String PREDICTIONSOURCE = ROOTSOURCE + "/prediction";
@@ -66,7 +70,13 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
     private GoogleMap mMap;
     private SupportMapFragment mMapFragment;
     private TextView mGeneralInfo;
-    private LinearLayout mLabel;
+    private FrameLayout mLabel;
+    private FragmentLabel mFragmentLabel = null;
+    private boolean labelVisible = false;
+    private TextView mFlight_id;
+    private TextView mAltitude;
+
+
 
     //i need to retain them in order to place a view to an specific position
     //it will be the position of the selected aircraft (more or less)
@@ -85,6 +95,7 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
     private Thread selfPositionThread;
     private Thread trafficPositionThread;
     private Thread predictioThread;
+    private PredictionReceiver predictionReceiver;
 
     //raw prediction container
     private Hashtable<Integer,ArrayList<Particle>> particles;
@@ -99,6 +110,7 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
         setContentView(R.layout.activity_main);
         setUpMapIfNeeded();
         setUpComponents();
+        createLabel();
 
         this.traffic = new Hashtable();
         this.heatmapTileOverlay = null;
@@ -106,7 +118,7 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
 
         this.findPredictionViewer();
 
-        mFrameLayout = (FrameLayout) findViewById(R.id.MainFrameLayout);
+        mFrameLayout = (FrameLayout) findViewById(R.id.mainFrameLayout);
         mLabel = null;
 
         this.trafficPositionThread = null;
@@ -114,6 +126,14 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
         //start thread for receiving own position
         receivePosition();
         receiveTraffic();
+    }
+
+    private void createLabel() {
+        mFragmentLabel = new FragmentLabel();
+        mFragmentLabel.setLabelInterface(this);
+        Log.d("TOUCH","FRAGMENT CREATED");
+        FragmentTransaction ft = getFragmentManager().beginTransaction();
+        ft.add(R.id.mainFrameLayout,mFragmentLabel).commit();
     }
 
     private void findPredictionViewer() {
@@ -403,25 +423,19 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
         int y = screenPoint.y;
         mGeneralInfo.setText(String.format("x:%d - y:%d", x,y));
 
-
-        if (mLabel == null) {
-            LayoutInflater inflater = getLayoutInflater();
-            mLabel = (LinearLayout) inflater.inflate(R.layout.label_layout, null);
-
-            //int width = aircraftID.getWidth();
-            //int height = aircraftID.getHeight();
-            mLayoutParams = new FrameLayout.LayoutParams(100,100);
-            //mLayoutParams.leftMargin = x;
-            //mLayoutParams.topMargin = y;
-            mFrameLayout.addView(mLabel,mLayoutParams);
-        }
+        if (predictionReceiver==null)
+            predictionReceiver = new PredictionReceiver(this,this.PREDICTIONSOURCE);
 
 
 
-        mLabel.setTranslationX(x);
-        mLabel.setTranslationY(y);
-        TextView aircraftID = (TextView) mLabel.findViewById(R.id.AircraftID);
-        aircraftID.setText(String.format("x:%d - y:%d", x,y));
+
+
+        mFragmentLabel.getView().setTranslationX(x);
+        mFragmentLabel.getView().setTranslationY(y);
+        mFragmentLabel.setFlightID(marker.getTitle());
+        mFragmentLabel.showLabel();
+
+        Log.d("TOUCH","TOUCH");
 
 
 
@@ -460,5 +474,8 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
     }
 
 
+    @Override
+    public void predictionSelected(int prediction) {
 
+    }
 }
