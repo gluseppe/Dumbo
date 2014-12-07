@@ -1,6 +1,7 @@
 package com.elephant.proga.dumbo;
 
 
+import android.app.Fragment;
 import android.app.FragmentTransaction;
 import android.graphics.Point;
 import android.os.Bundle;
@@ -8,17 +9,16 @@ import android.os.Handler;
 import android.os.SystemClock;
 import android.support.v4.app.FragmentActivity;
 import android.util.Log;
-import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.view.ViewGroup;
 import android.view.animation.Interpolator;
 import android.view.animation.LinearInterpolator;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
-import com.elephant.proga.dumbo.interfaces.LabelInterface;
+import com.elephant.proga.dumbo.interfaces.Label;
+import com.elephant.proga.dumbo.interfaces.LabelUser;
 import com.elephant.proga.dumbo.interfaces.PredictionHandler;
 import com.elephant.proga.dumbo.interfaces.PredictionViewer;
 import com.elephant.proga.dumbo.interfaces.SelfStatusHandler;
@@ -44,9 +44,9 @@ import java.util.Iterator;
 
 
 public class MainActivity extends FragmentActivity implements SelfStatusHandler, GoogleMap.OnCameraChangeListener,
-        GoogleMap.OnMarkerClickListener, TrafficStatusHandler, PredictionHandler, LabelInterface {
+        GoogleMap.OnMarkerClickListener, TrafficStatusHandler, PredictionHandler, LabelUser {
 
-    private final String ROOTSOURCE = "http://192.168.1.20:8080";
+    private final String ROOTSOURCE = "http://192.168.2.33:8080";
     private final String SELFSOURCE = ROOTSOURCE + "/traffic?item=myState";
     private final String TRAFFICSOURCE = ROOTSOURCE + "/traffic?item=traffic";
     private final String PREDICTIONSOURCE = ROOTSOURCE + "/prediction";
@@ -99,6 +99,7 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
 
     //raw prediction container
     private Hashtable<Integer,ArrayList<Particle>> particles;
+    private Hashtable<String,Prediction> predictions;
     //normal prediction container
     private Object cubes;
 
@@ -110,7 +111,11 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
         setContentView(R.layout.activity_main);
         setUpMapIfNeeded();
         setUpComponents();
-        createLabel();
+        try {
+            createLabel();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
         this.traffic = new Hashtable();
         this.heatmapTileOverlay = null;
@@ -128,12 +133,15 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
         receiveTraffic();
     }
 
-    private void createLabel() {
+    private void createLabel() throws Exception {
         mFragmentLabel = new FragmentLabel();
-        mFragmentLabel.setLabelInterface(this);
+        if (!(mFragmentLabel instanceof Label))
+            throw new Exception("The label MUST implement the Label Interface");
+
+        mFragmentLabel.setLabelUser(this);
         Log.d("TOUCH","FRAGMENT CREATED");
         FragmentTransaction ft = getFragmentManager().beginTransaction();
-        ft.add(R.id.mainFrameLayout,mFragmentLabel).commit();
+        ft.add(R.id.mainFrameLayout, mFragmentLabel).commit();
     }
 
     private void findPredictionViewer() {
@@ -428,10 +436,10 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
 
 
 
+        mFragmentLabel.setPosition(x,y);
 
-
-        mFragmentLabel.getView().setTranslationX(x);
-        mFragmentLabel.getView().setTranslationY(y);
+        //mFragmentLabel.getView().setTranslationX(x);
+        //mFragmentLabel.getView().setTranslationY(y);
         mFragmentLabel.setFlightID(marker.getTitle());
         mFragmentLabel.showLabel();
 
@@ -450,13 +458,22 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
         this.predictioThread.start();
     }
 
+    @Override
     public void onPredictionReceived(Object prediction) {
 
         Log.d("PREDICTION", "Hey, prediction received maybe");
 
         if (USEDPREDICTION==RAWPREDICTIONTYPE) {
+
             this.particles = (Hashtable<Integer, ArrayList<Particle>>) prediction;
-            this.onRawPredictionReceived(particles);
+            this.predictions = (Hashtable<String,Prediction>) prediction;
+            this.runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    onRawPredictionReceived(predictions);
+                }
+            });
+
         }
         else
         {
@@ -465,17 +482,35 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
 
     }
 
+    @Override
+    public void onPredictionFailed(int motivation) {
+        switch(motivation) {
+            case PredictionReceiver.PREDICTION_FAILED_JSON_TO_OBJECT: { break; }
+            case PredictionReceiver.PREDICTION_FAILED_SERVER_RETURNED_NULL: { break; }
+            case PredictionReceiver.PREDICTION_FAILED_STRING_TO_JSON: { break; }
+        }
 
-    public void onRawPredictionReceived(Hashtable<Integer, ArrayList<Particle>> particles) {
+    }
+
+
+
+
+    public void onRawPredictionReceived(Hashtable<String, Prediction> predictions) {
         //delete from map all of the other circles
         this.predictionViewer.removePrediction(mMap);
-        this.predictionViewer.drawPrediction(particles,mMap);
+        this.predictionViewer.drawPrediction(predictions,mMap);
 
     }
 
 
     @Override
-    public void predictionSelected(int prediction) {
-
+    public void predictionSelected(int prediction, String flightid) {
+        //Log.d("MARKER",String.format("MARKER TOUCHED, HELLO I M %s",marker.getTitle()));
+        PredictionReceiver pr = new PredictionReceiver(this,this.PREDICTIONSOURCE);
+        //public boolean setPredictionParams(String flight, int dt, int nsteps, boolean rawPrediction) {
+        pr.setPredictionParams(flightid, prediction*60, 1, USEDPREDICTION==RAWPREDICTIONTYPE);
+        this.predictioThread = new Thread(pr);
+        this.predictioThread.start();
+        //return true;
     }
 }

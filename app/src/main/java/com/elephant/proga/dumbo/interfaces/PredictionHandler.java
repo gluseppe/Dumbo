@@ -6,5 +6,6 @@ package com.elephant.proga.dumbo.interfaces;
 public interface PredictionHandler {
 
     public abstract void onPredictionReceived(Object prediction);
+    public abstract void onPredictionFailed(int motivation);
 
 }

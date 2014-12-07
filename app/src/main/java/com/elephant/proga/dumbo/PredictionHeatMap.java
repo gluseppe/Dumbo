@@ -32,23 +32,31 @@ public class PredictionHeatMap implements PredictionViewer {
 
 
     public void drawPrediction(Object p, GoogleMap map) {
-        Hashtable<Integer, ArrayList<Particle>> particles = (Hashtable<Integer, ArrayList<Particle>>) p;
+        Hashtable<String,Prediction> predictions = (Hashtable<String,Prediction>) p;
 
-        Enumeration<Integer> i = particles.keys();
+        //Hashtable<Integer, ArrayList<Particle>> particles = (Hashtable<Integer, ArrayList<Particle>>) p;
+
+        Enumeration<String> flights = predictions.keys();
         ArrayList coords = new ArrayList();
+        while(flights.hasMoreElements()) {
+            Prediction pred = predictions.get(flights.nextElement());
+            Hashtable raw = pred.getRawPrediction();
+            Enumeration times = raw.keys();
+            while(times.hasMoreElements()) {
+                //coords.addAll((ArrayList) times.nextElement());
+                ArrayList particles = (ArrayList) raw.get((times.nextElement()));
+                Iterator i = particles.iterator();
+                while(i.hasNext())
+                {
+                    Particle particle = (Particle) i.next();
+                    coords.add(particle.getPosition());
+                }
 
-        while (i.hasMoreElements()) {
-            ArrayList timesparticles = (ArrayList) particles.get(i.nextElement());
-            Iterator j = timesparticles.iterator();
-            while(j.hasNext()) {
-
-                Particle part = (Particle) j.next();
-                coords.add(part.getPosition());
             }
+
         }
-        addHeatMap(coords, map);
 
-
+        addHeatMap(coords,map);
     }
 
     private void addHeatMap(List list, GoogleMap map) {
@@ -77,6 +85,7 @@ public class PredictionHeatMap implements PredictionViewer {
             this.heatmapTileOverlay.clearTileCache();
 
         // Add a tile overlay to the map, using the heat map tile provider.
+
         this.heatmapTileOverlay = map.addTileOverlay(new TileOverlayOptions().tileProvider(heatmapProvider));
 
     }

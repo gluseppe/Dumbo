@@ -7,14 +7,18 @@
 
     <color name="primary">#009688</color>
     <color name="primary_transparent">#AA009688</color>
-    <color name="primary_dark">#004D40</color>
+    <color name="primary_dark">#AA004D40</color>
     <color name="accent">#FF5722</color>
     <color name="labels_text">#EEEEEE</color>
     <color name="totally_transparent">#00FFFFFF</color>
 
     <color name="pred_2mins">#FF7043</color>
+    <color name="pred_2mins_pressed">#FFAA14</color>
     <color name="pred_3mins">#FF5722</color>
+    <color name="pred_3mins_pressed">#FFAA14</color>
     <color name="pred_4mins">#E64A19</color>
+    <color name="pred_4mins_pressed">#FFAA14</color>
     <color name="pred_5mins">#BF360C</color>
+    <color name="pred_5mins_pressed">#FFAA14</color>
 
 </resources>
