@@ -1,9 +1,12 @@
-package com.elephant.proga.dumbo;
+package com.elephant.proga.dumbo.viewers;
 
 import android.graphics.Color;
 
+import com.elephant.proga.dumbo.Particle;
+import com.elephant.proga.dumbo.Prediction;
 import com.elephant.proga.dumbo.interfaces.PredictionViewer;
 import com.google.android.gms.maps.GoogleMap;
+import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.TileOverlay;
 import com.google.android.gms.maps.model.TileOverlayOptions;
 import com.google.maps.android.heatmaps.Gradient;
@@ -18,20 +21,20 @@ import java.util.List;
 /**
  * Created by gluse on 05/11/14.
  */
-public class PredictionHeatMap implements PredictionViewer {
+public class HeatMap implements PredictionViewer {
 
     private HeatmapTileProvider heatmapProvider;
     private TileOverlay heatmapTileOverlay;
     private Hashtable<Integer, ArrayList<Particle>> particles;
 
-    public PredictionHeatMap() {
+    public HeatMap() {
         this.heatmapProvider = null;
         this.heatmapTileOverlay = null;
 
     }
 
 
-    public void drawPrediction(Object p, GoogleMap map) {
+    public void drawPrediction(Object p, GoogleMap map, LatLng targetPosition, LatLng ownShipPosition, double ownShipAltitude) {
         Hashtable<String,Prediction> predictions = (Hashtable<String,Prediction>) p;
 
         //Hashtable<Integer, ArrayList<Particle>> particles = (Hashtable<Integer, ArrayList<Particle>>) p;
@@ -95,6 +98,11 @@ public class PredictionHeatMap implements PredictionViewer {
     public void removePrediction(GoogleMap map) {
         if (this.heatmapTileOverlay != null)
             this.heatmapTileOverlay.remove();
+    }
+
+    @Override
+    public void updatePrediction(LatLng newTargetPosition, LatLng ownShipPosition, double ownShipAltitude) {
+
     }
 
 

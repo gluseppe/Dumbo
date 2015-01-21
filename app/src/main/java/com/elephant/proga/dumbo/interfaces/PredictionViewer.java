@@ -1,6 +1,7 @@
 package com.elephant.proga.dumbo.interfaces;
 
 import com.google.android.gms.maps.GoogleMap;
+import com.google.android.gms.maps.model.LatLng;
 
 /**
  * Created by gluse on 05/11/14.
@@ -9,7 +10,7 @@ public interface PredictionViewer {
 
     //this method will be called when the prediction results contained in the Object p
     //need to be draw on the map referenced by the GoogleMap object map
-    public void drawPrediction(Object p, GoogleMap map);
+    public void drawPrediction(Object p, GoogleMap map, LatLng targetFlightPosition, LatLng ownShipPosition, double ownShipAltitude);
 
 
     //this method will be called when a visualization of a prediction becomes too old and needs to
@@ -17,5 +18,7 @@ public interface PredictionViewer {
     //The implementer class needs to hold a reference to all the items it placed in the map
     //in order to be able to remove them when this method is called
     public void removePrediction(GoogleMap map);
+
+    public void updatePrediction(LatLng newTargetPosition, LatLng ownShipPosition, double ownShipAltitude);
 
 }

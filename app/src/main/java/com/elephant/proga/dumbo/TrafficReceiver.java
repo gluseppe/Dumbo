@@ -24,17 +24,10 @@ public class TrafficReceiver extends Receiver {
 
 
             this.content = this.GET();
-            Log.d("RECEIVER", String.format("ASKING CONTENT"));
+            //Log.d("RECEIVER", String.format("ASKING CONTENT"));
             if (this.content != null) {
                 jcontent = this.toJSON(content);
-                /*this.activity.runOnUiThread(new Runnable() {
-                    public void run() {
-   //                     activity.onTrafficUpdate(jcontent);
-                    }
-                });
-                */
                 this.handler.onTrafficUpdate(jcontent);
-
             }
             else
                 Log.d("TRAFFIC RECEIVER", String.format("THERE ARE PROBLEMS RECEIVING DATA PLEASE CHECK CONNECTIONS AND IP"));

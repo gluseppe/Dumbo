@@ -30,8 +30,9 @@ public class SelfStatusReceiver extends Receiver {
 
             this.content = this.GET();
 
-            Log.d("RECEIVER", String.format("ASKING CONTENT"));
+            //Log.d("RECEIVER", String.format("ASKING CONTENT"));
             if (this.content != null) {
+                Log.d("SELF STATUS RECEIVER",String.format("content from server was: %s",content));
                 jcontent = this.toJSON(content);
                 this.handler.onSelfStatusUpdate(jcontent);
             }

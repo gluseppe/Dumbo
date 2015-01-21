@@ -27,6 +27,7 @@ public class FragmentLabel extends Fragment implements View.OnClickListener,Labe
 
     private TextView callToPredict = null;
     private TextView flightIDTextView = null;
+
     private TextView altitudeTextView = null;
     private View predictionCommands = null;
 
@@ -38,6 +39,10 @@ public class FragmentLabel extends Fragment implements View.OnClickListener,Labe
     private View labelView = null;
     private boolean minimized = false;
     private LabelUser mLabelUser;
+    private String flightID = null;
+
+
+    private float altitude;
 
     public FragmentLabel() {
         super();
@@ -59,8 +64,33 @@ public class FragmentLabel extends Fragment implements View.OnClickListener,Labe
 
 
     public void setFlightID(String flightid) {
+        assert flightid != null;
+        assert flightid != "";
+
+        this.flightID = flightid;
         this.flightIDTextView.setText(flightid);
     }
+
+    public String getFlightID() {
+        return this.flightID;
+    }
+
+
+    public float getAltitude() {
+        return altitude;
+    }
+
+    public void setAltitude(float altitude) {
+
+        this.altitude = altitude;
+        this.altitudeTextView.setText(String.format("@ %.1f ft", altitude));
+    }
+
+
+
+
+
+
 
     public void setPosition(float x, float y) {
         this.getView().setTranslationX(x);

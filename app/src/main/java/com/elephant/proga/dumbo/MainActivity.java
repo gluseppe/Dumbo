@@ -1,28 +1,32 @@
 package com.elephant.proga.dumbo;
 
 
-import android.app.Fragment;
+import android.animation.ObjectAnimator;
+import android.animation.PropertyValuesHolder;
+import android.animation.TypeEvaluator;
 import android.app.FragmentTransaction;
 import android.graphics.Point;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.SystemClock;
 import android.support.v4.app.FragmentActivity;
 import android.util.Log;
+import android.util.Property;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.view.animation.Interpolator;
-import android.view.animation.LinearInterpolator;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import com.elephant.proga.dumbo.helpers.LatLngInterpolator;
+import com.elephant.proga.dumbo.interfaces.ConflictHandler;
 import com.elephant.proga.dumbo.interfaces.Label;
 import com.elephant.proga.dumbo.interfaces.LabelUser;
 import com.elephant.proga.dumbo.interfaces.PredictionHandler;
 import com.elephant.proga.dumbo.interfaces.PredictionViewer;
 import com.elephant.proga.dumbo.interfaces.SelfStatusHandler;
 import com.elephant.proga.dumbo.interfaces.TrafficStatusHandler;
+import com.elephant.proga.dumbo.viewers.ConnectedParticles;
+import com.elephant.proga.dumbo.viewers.HeatMap;
+import com.elephant.proga.dumbo.viewers.Particles;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.Projection;
@@ -39,33 +43,51 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.Iterator;
 
 
 public class MainActivity extends FragmentActivity implements SelfStatusHandler, GoogleMap.OnCameraChangeListener,
-        GoogleMap.OnMarkerClickListener, TrafficStatusHandler, PredictionHandler, LabelUser {
+        GoogleMap.OnMarkerClickListener, TrafficStatusHandler, PredictionHandler, LabelUser, GoogleMap.CancelableCallback,
+        GoogleMap.OnMapClickListener, ConflictHandler {
 
-    private final String ROOTSOURCE = "http://192.168.2.33:8080";
+    private final String ROOTSOURCE = "http://192.168.1.29:8080";
     private final String SELFSOURCE = ROOTSOURCE + "/traffic?item=myState";
     private final String TRAFFICSOURCE = ROOTSOURCE + "/traffic?item=traffic";
     private final String PREDICTIONSOURCE = ROOTSOURCE + "/prediction";
+    private final String MONITORSOURCE = ROOTSOURCE + "/prediction";
+
     private final static String RAWPREDICTIONTYPE = "RAW";
     private final static String CUBESPREDICTIONTYPE = "CUBES";
     private final static String USEDPREDICTION = RAWPREDICTIONTYPE;
     private final static String HEATMAPVISUALIZATION = "HEATMAPVIEW";
     private final static String PARTICLESVISUALIZATION = "PARTICLESVIEW";
+    private final static String CONNECTEDPARTICLESVISUALIZATION = "CONNECTEDPARTICLESVIEW";
     private final static String CUBESVISUALIZATION = "CUBEVIEW";
-    private final static String PREDICTIONVISUALIZATION = HEATMAPVISUALIZATION;
+    private final static String PREDICTIONVISUALIZATION = CONNECTEDPARTICLESVISUALIZATION;
 
-    private static final long SELFSLEEPINGTIME = 2000;
+    private final static String SELFFLIGHTID = "SELF";
+
+    private static final long SELFSLEEPINGTIME = 1000;
+    private static final long MAPANIMATIONTIME = 1500;
+
     private static final long TRAFFICSLEEPINGTIME = 2000;
+    private static final long MONITORSLEEPINGTIME = 2000;
+    private static final double METERS_TO_FEET = 3.2808399;
+
 
     private Hashtable<String, Marker> traffic;
+    private HashSet conflicts;
 
+    private static final float DEFAULT_TILT = 60;
     private float autoZoomLevel = 12;
     private float userZoomLevel = -1;
     private float currentZoomLevel = autoZoomLevel;
+    private Marker lastTargetRequested = null;
+
+    private boolean monitorActive = false;
+
 
     private GoogleMap mMap;
     private SupportMapFragment mMapFragment;
@@ -86,6 +108,7 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
     private LinearLayout mLabelLayout;
     private boolean labelAdded = false;
     private Marker me;
+    private double meAltitude = -1;
 
     private HeatmapTileProvider heatmapProvider;
     private TileOverlay heatmapTileOverlay;
@@ -94,21 +117,25 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
     //receiver threads
     private Thread selfPositionThread;
     private Thread trafficPositionThread;
-    private Thread predictioThread;
+    private Thread predictionThread;
     private PredictionReceiver predictionReceiver;
+
+    private Thread monitorThread;
+    private ConflictMonitorReceiver conflictMonitorReceiver;
 
     //raw prediction container
     private Hashtable<Integer,ArrayList<Particle>> particles;
     private Hashtable<String,Prediction> predictions;
     //normal prediction container
     private Object cubes;
-
+    private boolean cameraChangeListenerIsSet;
 
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        cameraChangeListenerIsSet = false;
         setUpMapIfNeeded();
         setUpComponents();
         try {
@@ -124,6 +151,7 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
         this.findPredictionViewer();
 
         mFrameLayout = (FrameLayout) findViewById(R.id.mainFrameLayout);
+
         mLabel = null;
 
         this.trafficPositionThread = null;
@@ -146,8 +174,9 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
 
     private void findPredictionViewer() {
 
-        if (PREDICTIONVISUALIZATION == HEATMAPVISUALIZATION) setPredictionViewer(new PredictionHeatMap());
-        if (PREDICTIONVISUALIZATION == PARTICLESVISUALIZATION) setPredictionViewer(new PredictionParticles());
+        if (PREDICTIONVISUALIZATION == HEATMAPVISUALIZATION) setPredictionViewer(new HeatMap());
+        if (PREDICTIONVISUALIZATION == PARTICLESVISUALIZATION) setPredictionViewer(new Particles());
+        if (PREDICTIONVISUALIZATION == CONNECTEDPARTICLESVISUALIZATION) setPredictionViewer(new ConnectedParticles());
 
 
     }
@@ -170,12 +199,29 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
         this.selfPositionThread.start();
     }
 
+
+    private void animateMap(GoogleMap map, LatLng newLocation, float bearing) {
+
+
+        CameraPosition cameraPosition = new CameraPosition.Builder()
+                .target(newLocation)      // Sets the center of the map to the new position
+                .zoom(this.currentZoomLevel)                   // Sets the zoom
+                .bearing(bearing)                // Sets the orientation of the camera to east
+                .tilt(60)                   // Sets the tilt of the camera to 30 degrees
+                .build();                   // Creates a CameraPosition from the builder
+
+        this.mMap.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition),(int) SELFSLEEPINGTIME, this);
+    }
+
+
+
     private void updateSelfUI(JSONObject jSelf) {
         double lat;
         double lon;
-        //double h = 0;
+        double h = -1;
         double vx;
         double vy;
+        float bearing = 0;
 
         if (jSelf == null) return;
 
@@ -185,7 +231,8 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
             lon = jSelf.getDouble("lon");
             vx = jSelf.getDouble("vx");
             vy = jSelf.getDouble("vy");
-            //h = jSelf.getDouble("h");
+            bearing = getRotAngle(vx,vy);
+            this.meAltitude = jSelf.getDouble("h");
 
 
             if(this.me == null) {
@@ -193,20 +240,21 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
                         .position(new LatLng(lat, lon))
                         .icon(BitmapDescriptorFactory.fromResource(R.drawable.self_30))
                         .flat(true)
-                        .title("SELF"));
+                        .title(SELFFLIGHTID));
             }
             else
             {
-                animateMarker(this.me,new LatLng(lat,lon),getRotAngle(vx,vy),false,SELFSLEEPINGTIME);
+                LatLng currentPosition = new LatLng(lat,lon);
+                LatLngInterpolator linearInterpolator = new LatLngInterpolator.Linear();
+                animateMarkerToICS(this.me,currentPosition,linearInterpolator,bearing,SELFSLEEPINGTIME);
             }
 
-            CameraPosition cameraPosition = new CameraPosition.Builder()
-                    .target(new LatLng(lat,lon))      // Sets the center of the map to the new position
-                    .zoom(this.currentZoomLevel)                   // Sets the zoom
-//                .bearing(90)                // Sets the orientation of the camera to east
-                    .tilt(60)                   // Sets the tilt of the camera to 30 degrees
-                    .build();                   // Creates a CameraPosition from the builder
-            this.mMap.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition),2000,null);
+            this.animateMap(mMap, new LatLng(lat,lon), bearing);
+
+            if(this.cameraChangeListenerIsSet == false) {
+                mMap.setOnCameraChangeListener(this);
+                this.cameraChangeListenerIsSet = true;
+            }
 
 
 
@@ -245,11 +293,25 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
         this.runOnUiThread(new Runnable() {
             @Override
             public void run() {
-
+                //Log.d("TRAFFIC", "Updating traffic");
                 updateTrafficUI(jTraffic);
+                updateLabel();
 
             }
         });
+    }
+
+    private void updateLabel() {
+        //let's remember the dirty stuff: altitude is inside the snippet property of the marker :P
+        if (traffic != null) {
+            String selectedFlight = mFragmentLabel.getFlightID();
+            if (selectedFlight != null && selectedFlight != "SELF") {
+                float altitude = Float.valueOf(traffic.get(selectedFlight).getSnippet());
+                mFragmentLabel.setAltitude(altitude);
+            }
+
+        }
+
     }
 
     private void updateTrafficUI(JSONObject jTraffic) {
@@ -263,36 +325,43 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
             Marker current;
             while (iter.hasNext()) {
                 String key = iter.next();
-                Log.d("TRAFFIC UPDATE", String.format("flight id:%s",key));
+                //Log.d("TRAFFIC UPDATE", String.format("flight id:%s",key));
                 try {
                     JSONObject status = (JSONObject) jTraffic.get(key);
                     double lat = status.getDouble("lat");
                     double lon = status.getDouble("lon");
-                    //double h = status.getDouble("h");
+                    double h = status.getDouble("h");
+                    h = h * METERS_TO_FEET;
 
                     double vx = status.getDouble("vx");
                     double vy = status.getDouble("vy");
+                    float bearing = getRotAngle(vx,vy);
 
+                    //look for pointed element in the already present traffic
                     current = this.traffic.get(key);
-
-
+                    //if element was not in traffic, then we create marker and retain reference in traffic structure
+                    //for later access
                     if (current == null) {
-                        //Log.d("TRAFFIC UPDATE", String.format("flight id:%s was not in our hashtable",key));
+                        //we put the altitude in the snippet field, it's dirty and i know it
+                        //but i can't extend Marker class and composition is too much for just one field
+                        //to add
                         current = this.mMap.addMarker(new MarkerOptions()
                                 .position(new LatLng(lat, lon))
                                 .icon(BitmapDescriptorFactory.fromResource(R.drawable.traffic_yellow_30))
+                                .rotation(bearing)
+                                .snippet(String.valueOf(h))
                                 .flat(true)
                                 .title(key));
-                        //Log.d("TRAFFIC UPDATE", String.format("Adding %s, currently we have %d elements",key,this.traffic.size()));
                         this.traffic.put(key,current);
-                        //Log.d("TRAFFIC UPDATE", String.format("We now have %d elements in the hasthable",this.traffic.size()));
-
                     }
-
-
-                    //float angle = getRotAngle(vx,vy);
-
-                    this.animateMarker(current, new LatLng(lat,lon),getRotAngle(vx,vy),false,TRAFFICSLEEPINGTIME);
+                    else
+                    {
+                        current.setSnippet(String.valueOf(h));
+                        setTrafficColor(current,h);
+                    }
+                    //finally we animate it ()
+                    LatLngInterpolator linearInterpolator = new LatLngInterpolator.Linear();
+                    animateMarkerToICS(current, new LatLng(lat,lon),linearInterpolator,bearing,TRAFFICSLEEPINGTIME);
 
                 } catch (JSONException e) {
                     // Something went wrong!
@@ -300,6 +369,23 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
                 }
             }
         }
+    }
+
+    private void setTrafficColor(Marker flight, double h) {
+        double delta = Math.abs(h - this.meAltitude);
+
+        boolean inConclict = false;
+        if (this.conflicts != null)
+            inConclict = this.conflicts.contains(flight.getTitle());
+        if (inConclict)
+            flight.setIcon(BitmapDescriptorFactory.fromResource(R.drawable.traffic_red_30));
+        else {
+            if (delta >= 450) {
+                flight.setIcon(BitmapDescriptorFactory.fromResource(R.drawable.traffic_green_30));
+            } else
+                flight.setIcon(BitmapDescriptorFactory.fromResource(R.drawable.traffic_yellow_30));
+        }
+
     }
 
 
@@ -314,48 +400,44 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
 
     }
 
-    public void animateMarker(final Marker marker, final LatLng toPosition, final float rotAngle,
-                              final boolean hideMarker, final long duration) {
-        final Handler handler = new Handler();
-        final long start = SystemClock.uptimeMillis();
-        Projection proj = this.mMap.getProjection();
-        Point startPoint = proj.toScreenLocation(marker.getPosition());
-        final float startAngle = marker.getRotation();
-        final LatLng startLatLng = proj.fromScreenLocation(startPoint);
 
-        final Interpolator interpolator = new LinearInterpolator();
-
-        handler.post(new Runnable() {
+    static void animateMarkerToICS(Marker marker, LatLng finalPosition, final LatLngInterpolator latLngInterpolator, float rotation, long duration ) {
+        TypeEvaluator<LatLng> typeEvaluator = new TypeEvaluator<LatLng>() {
             @Override
-            public void run() {
-                long elapsed = SystemClock.uptimeMillis() - start;
-                float t = interpolator.getInterpolation((float) elapsed
-                        / duration);
-                double lng = t * toPosition.longitude + (1 - t)
-                        * startLatLng.longitude;
-                double lat = t * toPosition.latitude + (1 - t)
-                        * startLatLng.latitude;
-                float intermediate_angle = t * rotAngle + (1 -t) * startAngle;
-
-                marker.setPosition(new LatLng(lat, lng));
-                marker.setRotation(intermediate_angle);
-
-
-                if (t < 1.0) {
-                    // Post again 16ms later.
-                    handler.postDelayed(this, 16);
-                } else {
-                    if (hideMarker) {
-                        marker.setVisible(false);
-                    } else {
-                        marker.setVisible(true);
-                    }
-                }
+            public LatLng evaluate(float fraction, LatLng startValue, LatLng endValue) {
+                return latLngInterpolator.interpolate(fraction, startValue, endValue);
             }
-        });
+        };
+
+        Property<Marker, LatLng> property = Property.of(Marker.class, LatLng.class, "position");
+        PropertyValuesHolder pvhRot = PropertyValuesHolder.ofFloat("rotation",rotation);
+        PropertyValuesHolder pvhLatLng = PropertyValuesHolder.ofObject(property,typeEvaluator,finalPosition);
+        ObjectAnimator animator = ObjectAnimator.ofPropertyValuesHolder(marker,pvhLatLng,pvhRot);
+
+
+        //ObjectAnimator animator = ObjectAnimator.ofObject(marker, property, typeEvaluator, finalPosition);
+        animator.setDuration(duration);
+        animator.start();
     }
 
+    @Override
+    public void onConflictDetected(HashSet flightIDs) {
+        if(this.conflicts == null) {
+            this.conflicts = new HashSet();
+        }
+        else
+            this.conflicts.clear();
+        Log.d("MONITOR_ME","CONFLICT RECEIVED");
+        Iterator i = flightIDs.iterator();
+        String c;
+        while(i.hasNext()) {
+            c = (String) i.next();
+            this.conflicts.add(c);
 
+            Log.d("MONITOR_ME",String.format("CONFLICT WITH:%s", c));
+        }
+
+    }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -375,6 +457,39 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
         if (id == R.id.action_settings) {
             return true;
         }
+        if (id == R.id.action_clear) {
+            if (this.predictionViewer != null)
+            {
+                this.predictionViewer.removePrediction(mMap);
+            }
+        }
+        if (id == R.id.action_monitor_me) {
+            if (monitorActive) {
+                Log.d("MONITOR_ME", "monitor clicked - DEACTIVATING");
+                //stop monitor thread
+
+                this.monitorThread.interrupt();
+                this.monitorThread = null;
+                this.conflictMonitorReceiver = null;
+                monitorActive = false;
+
+
+            }
+            else
+            {
+                Log.d("MONITOR_ME", "monitor clicked - ACTIVATING");
+                if (this.conflictMonitorReceiver == null) {
+                    this.conflictMonitorReceiver = new ConflictMonitorReceiver(this, MONITORSOURCE, MONITORSLEEPINGTIME);
+                    this.monitorThread = new Thread(this.conflictMonitorReceiver);
+
+                }
+
+                this.monitorThread.start();
+                monitorActive = true;
+            }
+
+        }
+
 
         return super.onOptionsItemSelected(item);
     }
@@ -385,8 +500,6 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
             // Try to obtain the map from the SupportMapFragment.
             mMap = ((SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map))
                     .getMap();
-            mMap.setOnCameraChangeListener(this);
-            mMap.setOnMarkerClickListener(this);
             // Check if we were successful in obtaining the map.
             if (mMap != null) {
                 setUpMap();
@@ -395,16 +508,21 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
     }
 
     private void setUpMap() {
-        mMap.addMarker(new MarkerOptions()
-                .position(new LatLng(10, 10))
-                .title("Hello motherfucker"));
+        this.currentZoomLevel = this.autoZoomLevel;
+        //mMap.setOnCameraChangeListener(this);
+        mMap.setOnMarkerClickListener(this);
+        mMap.setOnMapClickListener(this);
+
+
+
+
 
     }
 
     private void setUpComponents() {
 
         mGeneralInfo = (TextView) findViewById(R.id.GeneralInformationText);
-        mGeneralInfo.setText("Hello MotherFucker");
+        mGeneralInfo.setText(":)");
 
     }
 
@@ -416,11 +534,20 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
     @Override
     public boolean onMarkerClick(Marker marker) {
         //askPrediction(marker);
-        showLabel(marker);
+
+        Log.d("MARKER", String.format("%s : %s",marker.getTitle(),SELFFLIGHTID));
+        if (marker.getTitle().equals(SELFFLIGHTID))
+            showSelfLabel();
+        else
+            showLabel(marker);
 
         //we only have one marker for the moment
         //i return true to avoid map centering automatically on the marker
         return true;
+    }
+
+    private void showSelfLabel() {
+
     }
 
     private void showLabel(Marker marker) {
@@ -443,19 +570,17 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
         mFragmentLabel.setFlightID(marker.getTitle());
         mFragmentLabel.showLabel();
 
-        Log.d("TOUCH","TOUCH");
-
-
 
     }
 
     private void askPrediction(Marker marker) {
+        this.lastTargetRequested = marker;
         marker.showInfoWindow();
         Log.d("MARKER",String.format("MARKER TOUCHED, HELLO I M %s",marker.getTitle()));
         PredictionReceiver pr = new PredictionReceiver(this,this.PREDICTIONSOURCE);
         pr.setPredictionParams(marker.getTitle(), 300, 1, USEDPREDICTION==RAWPREDICTIONTYPE);
-        this.predictioThread = new Thread(pr);
-        this.predictioThread.start();
+        this.predictionThread = new Thread(pr);
+        this.predictionThread.start();
     }
 
     @Override
@@ -470,7 +595,7 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
             this.runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
-                    onRawPredictionReceived(predictions);
+                    onRawPredictionReceived(predictions, lastTargetRequested);
                 }
             });
 
@@ -495,22 +620,47 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
 
 
 
-    public void onRawPredictionReceived(Hashtable<String, Prediction> predictions) {
+    public void onRawPredictionReceived(Hashtable<String, Prediction> predictions, Marker selectedFlight) {
         //delete from map all of the other circles
         this.predictionViewer.removePrediction(mMap);
-        this.predictionViewer.drawPrediction(predictions,mMap);
+        this.predictionViewer.drawPrediction(predictions,mMap,selectedFlight.getPosition(),this.me.getPosition(),this.meAltitude);
 
     }
 
 
     @Override
     public void predictionSelected(int prediction, String flightid) {
+        this.lastTargetRequested = this.traffic.get(flightid);
         //Log.d("MARKER",String.format("MARKER TOUCHED, HELLO I M %s",marker.getTitle()));
         PredictionReceiver pr = new PredictionReceiver(this,this.PREDICTIONSOURCE);
         //public boolean setPredictionParams(String flight, int dt, int nsteps, boolean rawPrediction) {
-        pr.setPredictionParams(flightid, prediction*60, 1, USEDPREDICTION==RAWPREDICTIONTYPE);
-        this.predictioThread = new Thread(pr);
-        this.predictioThread.start();
+        int prediction_secs = prediction*60;
+        //this value represents the size of each intermediate predition in seconds
+        //if 30 seconds it's set then we have 1 prediciton every 30 seconds until we reach the prediction_Secs limit
+        int prediction_slot_size = 30;
+        int steps = prediction_secs / prediction_slot_size;
+        pr.setPredictionParams(flightid, prediction*60, steps, USEDPREDICTION==RAWPREDICTIONTYPE);
+        this.predictionThread = new Thread(pr);
+        this.predictionThread.start();
         //return true;
+    }
+
+
+    //CANCELLABLECALLBACK INTERFACE METHODS
+    @Override
+    public void onFinish() {
+        //Log.d("SELF","ANIMATION FINISHED");
+
+    }
+
+    @Override
+    public void onCancel() {
+        //Log.d("SELF","ANIMATION CANCELED");
+
+    }
+
+    @Override
+    public void onMapClick(LatLng latLng) {
+        this.mFragmentLabel.hideLabel();
     }
 }

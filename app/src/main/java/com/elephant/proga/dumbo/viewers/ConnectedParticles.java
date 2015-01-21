@@ -134,7 +134,7 @@ public class ConnectedParticles implements PredictionViewer {
                     map.addPolyline(new PolylineOptions()
                                     .add(targetPosition, to)
                                     .width(2)
-                                    .color(0x20ffff00)
+                                    .color(Color.argb(100,150,40,0))
                                     .zIndex(0.0f)
                     )
             );
@@ -153,7 +153,7 @@ public class ConnectedParticles implements PredictionViewer {
                     map.addPolyline(new PolylineOptions()
                                     .add(from, to)
                                     .width(2)
-                                    .color(0x20ffff00)
+                                    .color(Color.argb(100,150,40,0))
                                     .zIndex(0.0f)
                     )
             );
@@ -197,7 +197,8 @@ public class ConnectedParticles implements PredictionViewer {
     private int computeColor(double targetAltitude, double ownShipAltitude, int future_time ) {
         double deltaQuote = Math.abs(targetAltitude-ownShipAltitude);
 
-        return Color.argb(compute_alpha(future_time,deltaQuote), compute_red(deltaQuote), compute_green(deltaQuote), compute_blue());
+        return Color.argb(compute_alpha(0,2000.0),150,40,0);
+        //return Color.argb(compute_alpha(future_time,deltaQuote), compute_red(deltaQuote), compute_green(deltaQuote), compute_blue());
 
     }
 

@@ -1,5 +1,16 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools" tools:context=".MainActivity">
+
+    <item android:id="@+id/action_clear"
+        android:icon="@drawable/clear_screen"
+        android:title="@string/action_clear"
+        android:showAsAction="always" />
+
+    <item android:id="@+id/action_monitor_me"
+        android:icon="@drawable/monitor_me"
+        android:title="@string/action_monitor_me"
+        android:showAsAction="always" />
+
     <item android:id="@+id/action_settings" android:title="@string/action_settings"
         android:orderInCategory="100" android:showAsAction="never" />
 </menu>

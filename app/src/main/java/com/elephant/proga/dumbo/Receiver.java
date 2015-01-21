@@ -65,7 +65,7 @@ abstract class Receiver implements Runnable {
     protected JSONObject toJSON(String string) {
 
         try {
-            Log.d("RECEIVER",string);
+            //Log.d("RECEIVER",string);
             return new JSONObject(string);
 
         } catch (JSONException e) {
