@@ -26,6 +26,7 @@ public class HeatMap implements PredictionViewer {
     private HeatmapTileProvider heatmapProvider;
     private TileOverlay heatmapTileOverlay;
     private Hashtable<Integer, ArrayList<Particle>> particles;
+    private boolean predictionActive = false;
 
     public HeatMap() {
         this.heatmapProvider = null;
@@ -60,6 +61,7 @@ public class HeatMap implements PredictionViewer {
         }
 
         addHeatMap(coords,map);
+        this.predictionActive = true;
     }
 
     private void addHeatMap(List list, GoogleMap map) {
@@ -98,12 +100,23 @@ public class HeatMap implements PredictionViewer {
     public void removePrediction(GoogleMap map) {
         if (this.heatmapTileOverlay != null)
             this.heatmapTileOverlay.remove();
+
+        this.predictionActive = false;
     }
 
     @Override
-    public void updatePrediction(LatLng newTargetPosition, LatLng ownShipPosition, double ownShipAltitude) {
+    public void updatePrediction(GoogleMap map, LatLng newTargetPosition, LatLng ownShipPosition, double ownShipAltitude) {
+        if (this.predictionActive) {
+            //update the prediction
+        }
+
 
     }
+
+    public boolean isPredictionActive() {
+        return this.predictionActive;
+    }
+
 
 
 }

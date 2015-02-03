@@ -5,6 +5,8 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 
+import com.elephant.proga.dumbo.receivers.PredictionReceiver;
+
 /**
  * Created by gluse on 25/11/14.
  */

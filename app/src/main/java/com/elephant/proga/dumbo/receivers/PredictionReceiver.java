@@ -1,7 +1,9 @@
-package com.elephant.proga.dumbo;
+package com.elephant.proga.dumbo.receivers;
 
 import android.util.Log;
 
+import com.elephant.proga.dumbo.Particle;
+import com.elephant.proga.dumbo.Prediction;
 import com.elephant.proga.dumbo.interfaces.PredictionHandler;
 import com.google.android.gms.maps.model.LatLng;
 
@@ -72,13 +74,14 @@ public class PredictionReceiver extends Receiver {
         JSONArray particles_and_legs;
         JSONObject particles_and_times;
 
+
         Hashtable<String,Prediction> predictions = new Hashtable<String, Prediction>();
 
         while (flights.hasNext()) {
             flight = flights.next();
             Log.d("JTEST", flight);
 
-            //try to access the prediction informatino for the flight in iteration
+            //try to access the prediction information for the flight in iteration
             try {
                 particles_and_legs = jcontent.getJSONArray(flight);
                 particles_and_times = particles_and_legs.getJSONObject(0);

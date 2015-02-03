@@ -1,4 +1,4 @@
-package com.elephant.proga.dumbo;
+package com.elephant.proga.dumbo.receivers;
 
 import android.util.Log;
 
@@ -8,7 +8,6 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
 

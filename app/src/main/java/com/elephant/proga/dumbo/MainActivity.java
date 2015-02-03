@@ -24,6 +24,10 @@ import com.elephant.proga.dumbo.interfaces.PredictionHandler;
 import com.elephant.proga.dumbo.interfaces.PredictionViewer;
 import com.elephant.proga.dumbo.interfaces.SelfStatusHandler;
 import com.elephant.proga.dumbo.interfaces.TrafficStatusHandler;
+import com.elephant.proga.dumbo.receivers.ConflictMonitorReceiver;
+import com.elephant.proga.dumbo.receivers.PredictionReceiver;
+import com.elephant.proga.dumbo.receivers.SelfStatusReceiver;
+import com.elephant.proga.dumbo.receivers.TrafficReceiver;
 import com.elephant.proga.dumbo.viewers.ConnectedParticles;
 import com.elephant.proga.dumbo.viewers.HeatMap;
 import com.elephant.proga.dumbo.viewers.Particles;
@@ -52,7 +56,7 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
         GoogleMap.OnMarkerClickListener, TrafficStatusHandler, PredictionHandler, LabelUser, GoogleMap.CancelableCallback,
         GoogleMap.OnMapClickListener, ConflictHandler {
 
-    private final String ROOTSOURCE = "http://192.168.1.29:8080";
+    private final String ROOTSOURCE = "http://192.168.2.33:8080";
     private final String SELFSOURCE = ROOTSOURCE + "/traffic?item=myState";
     private final String TRAFFICSOURCE = ROOTSOURCE + "/traffic?item=traffic";
     private final String PREDICTIONSOURCE = ROOTSOURCE + "/prediction";
@@ -114,6 +118,7 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
     private TileOverlay heatmapTileOverlay;
     private PredictionViewer predictionViewer;
 
+
     //receiver threads
     private Thread selfPositionThread;
     private Thread trafficPositionThread;
@@ -124,7 +129,7 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
     private ConflictMonitorReceiver conflictMonitorReceiver;
 
     //raw prediction container
-    private Hashtable<Integer,ArrayList<Particle>> particles;
+    //private Hashtable<Integer,ArrayList<Particle>> particles;
     private Hashtable<String,Prediction> predictions;
     //normal prediction container
     private Object cubes;
@@ -176,8 +181,7 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
 
         if (PREDICTIONVISUALIZATION == HEATMAPVISUALIZATION) setPredictionViewer(new HeatMap());
         if (PREDICTIONVISUALIZATION == PARTICLESVISUALIZATION) setPredictionViewer(new Particles());
-        if (PREDICTIONVISUALIZATION == CONNECTEDPARTICLESVISUALIZATION) setPredictionViewer(new ConnectedParticles());
-
+        if (PREDICTIONVISUALIZATION == CONNECTEDPARTICLESVISUALIZATION) setPredictionViewer(new ConnectedParticles(this.getApplicationContext()));
 
     }
 
@@ -362,6 +366,9 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
                     //finally we animate it ()
                     LatLngInterpolator linearInterpolator = new LatLngInterpolator.Linear();
                     animateMarkerToICS(current, new LatLng(lat,lon),linearInterpolator,bearing,TRAFFICSLEEPINGTIME);
+                    if (this.predictionViewer != null && this.mMap != null && this.lastTargetRequested != null && this.me != null)
+                            this.predictionViewer.updatePrediction(this.mMap,this.lastTargetRequested.getPosition(),this.me.getPosition(),this.meAltitude);
+
 
                 } catch (JSONException e) {
                     // Something went wrong!
@@ -461,6 +468,7 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
             if (this.predictionViewer != null)
             {
                 this.predictionViewer.removePrediction(mMap);
+                this.predictions = null;
             }
         }
         if (id == R.id.action_monitor_me) {
@@ -574,6 +582,7 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
     }
 
     private void askPrediction(Marker marker) {
+        this.predictions = null;
         this.lastTargetRequested = marker;
         marker.showInfoWindow();
         Log.d("MARKER",String.format("MARKER TOUCHED, HELLO I M %s",marker.getTitle()));
@@ -590,7 +599,7 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
 
         if (USEDPREDICTION==RAWPREDICTIONTYPE) {
 
-            this.particles = (Hashtable<Integer, ArrayList<Particle>>) prediction;
+            //this.particles = (Hashtable<Integer, ArrayList<Particle>>) prediction;
             this.predictions = (Hashtable<String,Prediction>) prediction;
             this.runOnUiThread(new Runnable() {
                 @Override
@@ -604,6 +613,8 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
         {
             Log.d("PREDICTION", "Hey, prediction with cubes received maybe");
         }
+        //this.predictions = null;
+        //this.particles = null;
 
     }
 
@@ -624,6 +635,7 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
         //delete from map all of the other circles
         this.predictionViewer.removePrediction(mMap);
         this.predictionViewer.drawPrediction(predictions,mMap,selectedFlight.getPosition(),this.me.getPosition(),this.meAltitude);
+        this.predictions = null;
 
     }
 

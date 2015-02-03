@@ -1,4 +1,4 @@
-package com.elephant.proga.dumbo;
+package com.elephant.proga.dumbo.receivers;
 
 import android.util.Log;
 

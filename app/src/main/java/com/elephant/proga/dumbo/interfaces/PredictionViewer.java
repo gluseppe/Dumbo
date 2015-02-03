@@ -19,6 +19,8 @@ public interface PredictionViewer {
     //in order to be able to remove them when this method is called
     public void removePrediction(GoogleMap map);
 
-    public void updatePrediction(LatLng newTargetPosition, LatLng ownShipPosition, double ownShipAltitude);
+    public void updatePrediction(GoogleMap map, LatLng newTargetPosition, LatLng ownShipPosition, double ownShipAltitude);
+
+    public boolean isPredictionActive();
 
 }

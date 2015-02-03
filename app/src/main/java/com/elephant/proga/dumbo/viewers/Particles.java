@@ -19,6 +19,7 @@ import java.util.Iterator;
 public class Particles implements PredictionViewer {
 
     private ArrayList shapes;
+    private boolean predictionActive = false;
 
     public void PredictionParticles() {
         this.shapes = null;
@@ -61,6 +62,7 @@ public class Particles implements PredictionViewer {
             }
 
         }
+        this.predictionActive = true;
     }
 
 
@@ -79,11 +81,21 @@ public class Particles implements PredictionViewer {
             }
         }
 
+        this.predictionActive = false;
+
     }
 
     @Override
-    public void updatePrediction(LatLng newTargetPosition, LatLng ownShipPosition, double ownShipAltitude) {
+    public void updatePrediction(GoogleMap map, LatLng newTargetPosition, LatLng ownShipPosition, double ownShipAltitude) {
+        if (this.predictionActive) {
+            //update the prediction
+        }
 
+    }
+
+    @Override
+    public boolean isPredictionActive() {
+        return this.predictionActive;
     }
 
 
