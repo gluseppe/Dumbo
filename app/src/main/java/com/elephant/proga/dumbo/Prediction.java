@@ -68,9 +68,6 @@ public class Prediction {
     //of all the particles we have for that time
     public Hashtable<Integer,Particle> getAltitudes() {
         if (this.rawPrediction != null) {
-            if (this.altitudes != null)
-                return this.altitudes;
-
             Hashtable<Integer,Particle> altitudes = new Hashtable<>();
 
             Iterator times_iter = this.rawPrediction.keySet().iterator();
@@ -98,7 +95,6 @@ public class Prediction {
                 }
                 avg_altitude = avg_altitude / n_particles;
                 centroid.setAltitude(avg_altitude);
-                //no, sbagliato
                 altitudes.put(the_time,centroid);
             }
 

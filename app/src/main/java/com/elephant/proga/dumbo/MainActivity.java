@@ -135,6 +135,10 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
     private Object cubes;
     private boolean cameraChangeListenerIsSet;
 
+    private boolean predictionActive = true;
+    private int lastStepsRequested = 0;
+    private int lastTimeRequested = 0;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -469,6 +473,8 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
             {
                 this.predictionViewer.removePrediction(mMap);
                 this.predictions = null;
+                this.predictionActive = false;
+
             }
         }
         if (id == R.id.action_monitor_me) {
@@ -480,6 +486,7 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
                 this.monitorThread = null;
                 this.conflictMonitorReceiver = null;
                 monitorActive = false;
+                item.setIcon(R.drawable.monitor_me);
 
 
             }
@@ -494,12 +501,52 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
 
                 this.monitorThread.start();
                 monitorActive = true;
+                item.setIcon(R.drawable.monitor_on);
             }
 
         }
 
+        if (id == R.id.action_heatmap && !(this.predictionViewer instanceof HeatMap)) {
+            this.predictionViewer.removePrediction(mMap);
+            setPredictionViewer(new HeatMap());
+            onViewerChange();
+        }
+
+        if (id == R.id.action_particles && !(this.predictionViewer instanceof Particles)) {
+            this.predictionViewer.removePrediction(mMap);
+            setPredictionViewer(new Particles());
+            onViewerChange();
+
+
+        }
+
+        if (id == R.id.action_connected_particles && !(this.predictionViewer instanceof ConnectedParticles)) {
+            this.predictionViewer.removePrediction(mMap);
+            setPredictionViewer(new ConnectedParticles(this.getApplicationContext()));
+            onViewerChange();
+
+
+        }
+
+
 
         return super.onOptionsItemSelected(item);
+    }
+
+    private void onViewerChange() {
+        if (this.lastTargetRequested != null && this.predictionActive) {
+
+            PredictionReceiver pr = new PredictionReceiver(this, this.PREDICTIONSOURCE);
+            pr.setPredictionParams(this.lastTargetRequested.getTitle(), this.lastTimeRequested, this.lastStepsRequested, USEDPREDICTION==RAWPREDICTIONTYPE);
+
+            if (this.predictionThread != null && this.predictionThread.isAlive()) {
+                this.predictionThread.interrupt();
+                this.predictionThread = null;
+            }
+
+            this.predictionThread = new Thread(pr);
+            this.predictionThread.start();
+        }
     }
 
     private void setUpMapIfNeeded() {
@@ -652,6 +699,13 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
         int prediction_slot_size = 30;
         int steps = prediction_secs / prediction_slot_size;
         pr.setPredictionParams(flightid, prediction*60, steps, USEDPREDICTION==RAWPREDICTIONTYPE);
+        this.predictionActive = true;
+        this.lastStepsRequested = steps;
+        this.lastTimeRequested = prediction*60;
+        if (this.predictionThread != null && this.predictionThread.isAlive()) {
+            this.predictionThread.interrupt();
+            this.predictionThread = null;
+        }
         this.predictionThread = new Thread(pr);
         this.predictionThread.start();
         //return true;

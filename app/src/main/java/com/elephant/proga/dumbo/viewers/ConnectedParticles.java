@@ -97,6 +97,12 @@ public class ConnectedParticles implements PredictionViewer {
         if (this.shapes == null)
             this.shapes = new ArrayList();
 
+        if (predictions == null)
+            return;
+
+        if (predictions.keys() == null)
+            return;
+
         //Hashtable<Integer, ArrayList<Particle>> particles = (Hashtable<Integer, ArrayList<Particle>>) p;
 
         Enumeration<String> flights = predictions.keys();
@@ -153,10 +159,10 @@ public class ConnectedParticles implements PredictionViewer {
         IconGenerator ig = new IconGenerator(this.context);
         ig.setStyle(IconGenerator.STYLE_WHITE);
 
-        Bitmap bm = ig.makeIcon(String.format("Altitude: %.1f ft",centroid.getAltitude()));
+        Bitmap bm = ig.makeIcon(String.format("Alt:%.0f ft",centroid.getAltitude()));
         return map.addMarker(new MarkerOptions()
                         .position(centroid.getPosition())
-                        .alpha(0.8f)
+                        .alpha(0.4f)
                         .icon(BitmapDescriptorFactory.fromBitmap(bm))
         );
 

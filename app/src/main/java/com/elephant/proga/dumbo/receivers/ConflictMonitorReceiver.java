@@ -78,11 +78,12 @@ public class ConflictMonitorReceiver extends Receiver {
             if (this.content != null) {
                 Log.d("MONITOR_ME",String.format("Conflict detector said: %s",this.content));
                 jcontent = this.toJSON(content);
-                if(anyConflict(jcontent)) {
-                    conflictingFlights = getFlightsFromJSON(jcontent);
-                    if (conflictingFlights != null)
-                        this.handler.onConflictDetected(conflictingFlights);
-                }
+                if (jcontent != null)
+                    if(anyConflict(jcontent)) {
+                        conflictingFlights = getFlightsFromJSON(jcontent);
+                        if (conflictingFlights != null)
+                            this.handler.onConflictDetected(conflictingFlights);
+                    }
             }
             else
                 Log.d("TRAFFIC RECEIVER", String.format("THERE ARE PROBLEMS RECEIVING DATA PLEASE CHECK CONNECTIONS AND IP"));

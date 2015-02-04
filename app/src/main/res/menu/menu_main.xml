@@ -6,6 +6,39 @@
         android:title="@string/action_clear"
         android:showAsAction="always" />
 
+    <item android:id="@+id/action_pred_view"
+        android:icon="@drawable/view"
+        android:title="@string/action_pred_view"
+        android:showAsAction="always">
+
+        <menu>
+            <item android:id="@+id/action_heatmap"
+                android:icon="@drawable/heatmap"
+                android:title="@string/action_heatmap"
+                android:showAsAction="always"/>
+            <item android:id="@+id/action_particles"
+                android:icon="@drawable/particles"
+                android:title="@string/action_particles"
+                android:showAsAction="always"/>
+            <item android:id="@+id/action_connected_particles"
+                android:icon="@drawable/connectedparticles"
+                android:title="@string/action_connected_particles"
+                android:showAsAction="always"/>
+
+
+        </menu>
+
+    </item>
+
+    <item android:id="@+id/action_hotspots"
+        android:icon="@drawable/hotspots"
+        android:title="@string/action_hotspots"
+        android:showAsAction="always" />
+
+
+
+
+
     <item android:id="@+id/action_monitor_me"
         android:icon="@drawable/monitor_me"
         android:title="@string/action_monitor_me"
@@ -13,4 +46,6 @@
 
     <item android:id="@+id/action_settings" android:title="@string/action_settings"
         android:orderInCategory="100" android:showAsAction="never" />
+
+
 </menu>
