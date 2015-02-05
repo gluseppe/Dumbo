@@ -162,7 +162,7 @@ public class ConnectedParticles implements PredictionViewer {
         Bitmap bm = ig.makeIcon(String.format("Alt:%.0f ft",centroid.getAltitude()));
         return map.addMarker(new MarkerOptions()
                         .position(centroid.getPosition())
-                        .alpha(0.4f)
+                        .alpha(0.8f)
                         .icon(BitmapDescriptorFactory.fromBitmap(bm))
         );
 

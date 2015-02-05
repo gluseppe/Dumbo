@@ -1,12 +1,19 @@
 package com.elephant.proga.dumbo.viewers;
 
+import android.content.Context;
+import android.graphics.Bitmap;
+
 import com.elephant.proga.dumbo.Particle;
 import com.elephant.proga.dumbo.Prediction;
 import com.elephant.proga.dumbo.interfaces.PredictionViewer;
 import com.google.android.gms.maps.GoogleMap;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.Circle;
 import com.google.android.gms.maps.model.CircleOptions;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.Marker;
+import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.maps.android.ui.IconGenerator;
 
 import java.util.ArrayList;
 import java.util.Enumeration;
@@ -19,9 +26,12 @@ import java.util.Iterator;
 public class Particles implements PredictionViewer {
 
     private ArrayList shapes;
+    private ArrayList altitudeMarkers;
     private boolean predictionActive = false;
+    private Context context;
 
-    public void PredictionParticles() {
+    public Particles(Context context) {
+        this.context = context;
         this.shapes = null;
 
     }
@@ -39,6 +49,7 @@ public class Particles implements PredictionViewer {
         ArrayList coords = new ArrayList();
         while(flights.hasMoreElements()) {
             Prediction pred = predictions.get(flights.nextElement());
+            indicateAltitudes(map,pred);
             Hashtable raw = pred.getRawPrediction();
             Enumeration times = raw.keys();
             while(times.hasMoreElements()) {
@@ -81,7 +92,51 @@ public class Particles implements PredictionViewer {
             }
         }
 
+        if (this.altitudeMarkers != null) {
+            Iterator k = this.altitudeMarkers.iterator();
+            while (k.hasNext())
+            {
+                Marker m = (Marker) k.next();
+                m.remove();
+            }
+            this.altitudeMarkers.clear();
+        }
+
         this.predictionActive = false;
+
+    }
+
+
+    private Marker produceAltitudeMarker(GoogleMap map,Particle centroid) {
+        IconGenerator ig = new IconGenerator(this.context);
+        ig.setStyle(IconGenerator.STYLE_WHITE);
+
+        Bitmap bm = ig.makeIcon(String.format("Alt:%.0f ft",centroid.getAltitude()));
+        return map.addMarker(new MarkerOptions()
+                        .position(centroid.getPosition())
+                        .alpha(0.8f)
+                        .icon(BitmapDescriptorFactory.fromBitmap(bm))
+        );
+
+
+
+    }
+
+    private void indicateAltitudes(GoogleMap map, Prediction p) {
+
+        Hashtable <Integer, Particle> altitudes = p.getAltitudes();
+        if (altitudes != null)
+        {
+            if (this.altitudeMarkers == null)
+                this.altitudeMarkers = new ArrayList();
+
+            Iterator i = altitudes.keySet().iterator();
+            while(i.hasNext()) {
+                int t = (int) i.next();
+
+                altitudeMarkers.add(produceAltitudeMarker(map, altitudes.get(t)));
+            }
+        }
 
     }
 

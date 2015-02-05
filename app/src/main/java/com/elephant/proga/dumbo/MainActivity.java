@@ -18,6 +18,8 @@ import android.widget.TextView;
 
 import com.elephant.proga.dumbo.helpers.LatLngInterpolator;
 import com.elephant.proga.dumbo.interfaces.ConflictHandler;
+import com.elephant.proga.dumbo.interfaces.HotspotsHandler;
+import com.elephant.proga.dumbo.interfaces.HotspotsViewer;
 import com.elephant.proga.dumbo.interfaces.Label;
 import com.elephant.proga.dumbo.interfaces.LabelUser;
 import com.elephant.proga.dumbo.interfaces.PredictionHandler;
@@ -25,9 +27,11 @@ import com.elephant.proga.dumbo.interfaces.PredictionViewer;
 import com.elephant.proga.dumbo.interfaces.SelfStatusHandler;
 import com.elephant.proga.dumbo.interfaces.TrafficStatusHandler;
 import com.elephant.proga.dumbo.receivers.ConflictMonitorReceiver;
+import com.elephant.proga.dumbo.receivers.HotspotsReceiver;
 import com.elephant.proga.dumbo.receivers.PredictionReceiver;
 import com.elephant.proga.dumbo.receivers.SelfStatusReceiver;
 import com.elephant.proga.dumbo.receivers.TrafficReceiver;
+import com.elephant.proga.dumbo.viewers.BubbleHotspot;
 import com.elephant.proga.dumbo.viewers.ConnectedParticles;
 import com.elephant.proga.dumbo.viewers.HeatMap;
 import com.elephant.proga.dumbo.viewers.Particles;
@@ -54,13 +58,14 @@ import java.util.Iterator;
 
 public class MainActivity extends FragmentActivity implements SelfStatusHandler, GoogleMap.OnCameraChangeListener,
         GoogleMap.OnMarkerClickListener, TrafficStatusHandler, PredictionHandler, LabelUser, GoogleMap.CancelableCallback,
-        GoogleMap.OnMapClickListener, ConflictHandler {
+        GoogleMap.OnMapClickListener, ConflictHandler, HotspotsHandler {
 
     private final String ROOTSOURCE = "http://192.168.2.33:8080";
     private final String SELFSOURCE = ROOTSOURCE + "/traffic?item=myState";
     private final String TRAFFICSOURCE = ROOTSOURCE + "/traffic?item=traffic";
     private final String PREDICTIONSOURCE = ROOTSOURCE + "/prediction";
     private final String MONITORSOURCE = ROOTSOURCE + "/prediction";
+    private final String HOTSPOTSSOURCE = ROOTSOURCE + "/hotspots";
 
     private final static String RAWPREDICTIONTYPE = "RAW";
     private final static String CUBESPREDICTIONTYPE = "CUBES";
@@ -128,6 +133,11 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
     private Thread monitorThread;
     private ConflictMonitorReceiver conflictMonitorReceiver;
 
+    private Thread hotspotsThread;
+    private HotspotsReceiver hotspotsReceiver;
+    private boolean hotspotActive = false;
+    private HotspotsViewer hotspotsViewer;
+
     //raw prediction container
     //private Hashtable<Integer,ArrayList<Particle>> particles;
     private Hashtable<String,Prediction> predictions;
@@ -183,8 +193,8 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
 
     private void findPredictionViewer() {
 
-        if (PREDICTIONVISUALIZATION == HEATMAPVISUALIZATION) setPredictionViewer(new HeatMap());
-        if (PREDICTIONVISUALIZATION == PARTICLESVISUALIZATION) setPredictionViewer(new Particles());
+        if (PREDICTIONVISUALIZATION == HEATMAPVISUALIZATION) setPredictionViewer(new HeatMap(this.getApplicationContext()));
+        if (PREDICTIONVISUALIZATION == PARTICLESVISUALIZATION) setPredictionViewer(new Particles(this.getApplicationContext()));
         if (PREDICTIONVISUALIZATION == CONNECTEDPARTICLESVISUALIZATION) setPredictionViewer(new ConnectedParticles(this.getApplicationContext()));
 
     }
@@ -506,15 +516,41 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
 
         }
 
+        if (id == R.id.action_hotspots) {
+            Log.d("HOTSPOTS","CLICKED");
+            if (this.hotspotActive)
+            {
+                this.hotspotActive = false;
+                this.hotspotsThread.interrupt();
+                this.hotspotsViewer.removeHotspots(mMap,2);
+
+
+            }
+            else
+            {
+                Log.d("HOTSPOTS","ACTIVATING");
+                this.hotspotsViewer = new BubbleHotspot(this.getApplicationContext());
+                this.hotspotActive = true;
+                if (this.hotspotsThread != null)
+                    if (this.hotspotsThread.isAlive())
+                        this.hotspotsThread.interrupt();
+
+                this.hotspotsReceiver = new HotspotsReceiver(this,HOTSPOTSSOURCE,-1);
+                this.hotspotsThread = new Thread(this.hotspotsReceiver);
+                this.hotspotsThread.start();
+            }
+
+        }
+
         if (id == R.id.action_heatmap && !(this.predictionViewer instanceof HeatMap)) {
             this.predictionViewer.removePrediction(mMap);
-            setPredictionViewer(new HeatMap());
+            setPredictionViewer(new HeatMap(this.getApplicationContext()));
             onViewerChange();
         }
 
         if (id == R.id.action_particles && !(this.predictionViewer instanceof Particles)) {
             this.predictionViewer.removePrediction(mMap);
-            setPredictionViewer(new Particles());
+            setPredictionViewer(new Particles(this.getApplicationContext()));
             onViewerChange();
 
 
@@ -589,6 +625,15 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
     @Override
     public boolean onMarkerClick(Marker marker) {
         //askPrediction(marker);
+        if (marker == null)
+            return true;
+
+        if (marker.getTitle() == null)
+            return true;
+
+        if (marker.getTitle().equals("HOTSPOT")) {
+            return true;
+        }
 
         Log.d("MARKER", String.format("%s : %s",marker.getTitle(),SELFFLIGHTID));
         if (marker.getTitle().equals(SELFFLIGHTID))
@@ -696,7 +741,7 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
         int prediction_secs = prediction*60;
         //this value represents the size of each intermediate predition in seconds
         //if 30 seconds it's set then we have 1 prediciton every 30 seconds until we reach the prediction_Secs limit
-        int prediction_slot_size = 30;
+        int prediction_slot_size = 60;
         int steps = prediction_secs / prediction_slot_size;
         pr.setPredictionParams(flightid, prediction*60, steps, USEDPREDICTION==RAWPREDICTIONTYPE);
         this.predictionActive = true;
@@ -729,4 +774,17 @@ public class MainActivity extends FragmentActivity implements SelfStatusHandler,
     public void onMapClick(LatLng latLng) {
         this.mFragmentLabel.hideLabel();
     }
+
+    @Override
+    public void onHotspotReceived(final Object hotspots) {
+
+        this.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                hotspotsViewer.drawHotspots(mMap, hotspots);
+            }
+        });
+    }
 }
+
+

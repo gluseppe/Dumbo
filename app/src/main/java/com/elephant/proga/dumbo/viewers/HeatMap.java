@@ -1,16 +1,22 @@
 package com.elephant.proga.dumbo.viewers;
 
+import android.content.Context;
+import android.graphics.Bitmap;
 import android.graphics.Color;
 
 import com.elephant.proga.dumbo.Particle;
 import com.elephant.proga.dumbo.Prediction;
 import com.elephant.proga.dumbo.interfaces.PredictionViewer;
 import com.google.android.gms.maps.GoogleMap;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.Marker;
+import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.TileOverlay;
 import com.google.android.gms.maps.model.TileOverlayOptions;
 import com.google.maps.android.heatmaps.Gradient;
 import com.google.maps.android.heatmaps.HeatmapTileProvider;
+import com.google.maps.android.ui.IconGenerator;
 
 import java.util.ArrayList;
 import java.util.Enumeration;
@@ -28,9 +34,13 @@ public class HeatMap implements PredictionViewer {
     private Hashtable<Integer, ArrayList<Particle>> particles;
     private boolean predictionActive = false;
 
-    public HeatMap() {
+    private Context context;
+    private ArrayList altitudeMarkers;
+
+    public HeatMap(Context context) {
         this.heatmapProvider = null;
         this.heatmapTileOverlay = null;
+        this.context = context;
 
     }
 
@@ -44,6 +54,7 @@ public class HeatMap implements PredictionViewer {
         ArrayList coords = new ArrayList();
         while(flights.hasMoreElements()) {
             Prediction pred = predictions.get(flights.nextElement());
+            indicateAltitudes(map,pred);
             Hashtable raw = pred.getRawPrediction();
             Enumeration times = raw.keys();
             while(times.hasMoreElements()) {
@@ -101,6 +112,17 @@ public class HeatMap implements PredictionViewer {
         if (this.heatmapTileOverlay != null)
             this.heatmapTileOverlay.remove();
 
+        if (this.altitudeMarkers != null) {
+            Iterator k = this.altitudeMarkers.iterator();
+            while (k.hasNext())
+            {
+                Marker m = (Marker) k.next();
+                m.remove();
+            }
+            this.altitudeMarkers.clear();
+        }
+
+
         this.predictionActive = false;
     }
 
@@ -115,6 +137,40 @@ public class HeatMap implements PredictionViewer {
 
     public boolean isPredictionActive() {
         return this.predictionActive;
+    }
+
+
+    private Marker produceAltitudeMarker(GoogleMap map,Particle centroid) {
+        IconGenerator ig = new IconGenerator(this.context);
+        ig.setStyle(IconGenerator.STYLE_WHITE);
+
+        Bitmap bm = ig.makeIcon(String.format("Alt:%.0f ft",centroid.getAltitude()));
+        return map.addMarker(new MarkerOptions()
+                        .position(centroid.getPosition())
+                        .alpha(0.8f)
+                        .icon(BitmapDescriptorFactory.fromBitmap(bm))
+        );
+
+
+
+    }
+
+    private void indicateAltitudes(GoogleMap map, Prediction p) {
+
+        Hashtable <Integer, Particle> altitudes = p.getAltitudes();
+        if (altitudes != null)
+        {
+            if (this.altitudeMarkers == null)
+                this.altitudeMarkers = new ArrayList();
+
+            Iterator i = altitudes.keySet().iterator();
+            while(i.hasNext()) {
+                int t = (int) i.next();
+
+                altitudeMarkers.add(produceAltitudeMarker(map, altitudes.get(t)));
+            }
+        }
+
     }
 
 

@@ -6,6 +6,7 @@ import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.DefaultHttpClient;
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -67,6 +68,18 @@ abstract class Receiver implements Runnable {
         try {
             //Log.d("RECEIVER",string);
             return new JSONObject(string);
+
+        } catch (JSONException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    protected JSONArray toJSONArray(String string) {
+
+        try {
+            //Log.d("RECEIVER",string);
+            return new JSONArray(string);
 
         } catch (JSONException e) {
             e.printStackTrace();
